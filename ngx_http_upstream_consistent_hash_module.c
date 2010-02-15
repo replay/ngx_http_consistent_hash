@@ -116,8 +116,8 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf, ngx_http_upstream_srv_con
 
     for (n = 0, i = 0; i < us->servers->nelts; i++) {
         n += server[i].naddrs;
-        //points += server[i].weight * server[i].naddrs * MMC_CONSISTENT_POINTS;
-        points += MMC_CONSISTENT_POINTS;
+        points += server[i].weight * server[i].naddrs * MMC_CONSISTENT_POINTS;
+        //points += MMC_CONSISTENT_POINTS;
     }
     
     continuum = ngx_pcalloc(cf->pool, sizeof(ngx_http_upstream_consistent_hash_continuum));
@@ -162,31 +162,6 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf, ngx_http_upstream_srv_con
     return NGX_OK;
 }
 
-void 
-ngx_http_upstream_consistent_hash_print_buckets (ngx_conf_t *cf, ngx_http_upstream_consistent_hash_buckets *buckets)
-{
-  ngx_uint_t i;
-
-  printf("print buckets\n");
-
-  for (i = 0; i < MMC_CONSISTENT_BUCKETS; i++)
-  {
-    printf("%i: name %s point %u\n", (int)i, (char*)buckets->buckets[i]->ip.name.data, (unsigned int)buckets->buckets[i]->point);
-  }
-}
-
-void 
-ngx_http_upstream_consistent_hash_print_continuum (ngx_conf_t *cf, ngx_http_upstream_consistent_hash_continuum *continuum)
-{
-  ngx_uint_t i;
-
-  printf("print continuum\n");
-
-  for (i = 0; i < continuum->nnodes; i++)
-  {
-    printf("%i: name %s point %u\n", (int)i, (char*)continuum->nodes[i].ip.name.data, (unsigned int)continuum->nodes[i].point);
-  }
-}
 
 int ngx_http_upstream_consistent_hash_compare_continuum_nodes (const ngx_http_upstream_consistent_hash_node *node1, const ngx_http_upstream_consistent_hash_node *node2)
 {
@@ -220,13 +195,10 @@ ngx_http_upstream_init_consistent_hash_peer(ngx_http_request_t *r,
     return NGX_ERROR;
   }
   uchpd->point = ngx_crc32_long(evaluated_key_to_hash.data, evaluated_key_to_hash.len);
-  //printf("points: %u\n", (unsigned int) uchpd->point);
 
   r->upstream->peer.free = ngx_http_upstream_free_consistent_hash_peer;
   r->upstream->peer.get = ngx_http_upstream_get_consistent_hash_peer;
   r->upstream->peer.data = uchpd;
-
-  //r->upstream->peer.tries = us->retries + 1;
 
   return NGX_OK;
 }
@@ -239,14 +211,11 @@ ngx_http_upstream_get_consistent_hash_peer(ngx_peer_connection_t *pc, void *data
   pc->cached = 0;
   pc->connection = NULL;
 
-  //printf("name %s point %u\n", (char*)uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.name.data, (unsigned int)uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->point);
-
-  //printf("hash is %u, so i choose bucket num %u\n", (unsigned int) uchpd->point, (unsigned int) uchpd->point % MMC_CONSISTENT_BUCKETS);
-
   pc->sockaddr = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.sockaddr;
   pc->socklen = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.socklen;
   pc->name = &uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.name;
   
+  //printf("returning %s\n", pc->name->data);
   return NGX_OK;
 }
 
@@ -257,10 +226,7 @@ ngx_http_upstream_consistent_hash_find(ngx_http_upstream_consistent_hash_continu
 
   while (1)
   {
-    //printf("choosing from vals reqpoint: %u, lo: %u, hi: %u, mid: %u\n", (int) point, (unsigned int) continuum->nodes[lo].point, (unsigned int) continuum->nodes[hi].point, (unsigned int) continuum->nodes[mid].point);
-    /* point is outside interval or lo >= hi, wrap-around */
     if (point <= continuum->nodes[lo].point || point > continuum->nodes[hi].point) {
-      //printf("chose1: %i\n", (int) lo);
       return &continuum->nodes[lo];
     }
 
@@ -269,7 +235,6 @@ ngx_http_upstream_consistent_hash_find(ngx_http_upstream_consistent_hash_continu
 
     /* perfect match */
     if (point <= continuum->nodes[mid].point && point > (mid ? continuum->nodes[mid-1].point : 0)) {
-      //printf("chose2: %i\n", (int) mid);
       return &continuum->nodes[mid];
     }
 
@@ -296,6 +261,7 @@ ngx_http_upstream_consistent_hash(ngx_conf_t *cf, ngx_command_t *cmd, void *conf
     ngx_http_upstream_srv_conf_t *uscf;
     ngx_http_script_compile_t sc;
     ngx_str_t *value;
+    
 
     value = cf->args->elts;
 
@@ -325,3 +291,30 @@ ngx_http_upstream_consistent_hash(ngx_conf_t *cf, ngx_command_t *cmd, void *conf
     return NGX_CONF_OK;
 }
 
+
+/// debugging
+void 
+ngx_http_upstream_consistent_hash_print_buckets (ngx_conf_t *cf, ngx_http_upstream_consistent_hash_buckets *buckets)
+{
+  ngx_uint_t i;
+
+  printf("print buckets\n");
+
+  for (i = 0; i < MMC_CONSISTENT_BUCKETS; i++)
+  {
+    printf("%i: name %s point %u\n", (int)i, (char*)buckets->buckets[i]->ip.name.data, (unsigned int)buckets->buckets[i]->point);
+  }
+}
+
+void 
+ngx_http_upstream_consistent_hash_print_continuum (ngx_conf_t *cf, ngx_http_upstream_consistent_hash_continuum *continuum)
+{
+  ngx_uint_t i;
+
+  printf("print continuum\n");
+
+  for (i = 0; i < continuum->nnodes; i++)
+  {
+    printf("%i: name %.19s point %u\n", (int)i, (char*)continuum->nodes[i].ip.name.data, (unsigned int)continuum->nodes[i].point);
+  }
+}
