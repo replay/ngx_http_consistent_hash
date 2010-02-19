@@ -1,0 +1,27 @@
+Common subdirectories: nginx-0.7.65/src/http/modules and nginx-0.7.65.patched/src/http/modules
+diff -cB nginx-0.7.65/src/http/ngx_http_upstream.c nginx-0.7.65.patched/src/http/ngx_http_upstream.c
+*** nginx-0.7.65/src/http/ngx_http_upstream.c	2010-02-01 23:46:14.000000000 +0800
+--- nginx-0.7.65.patched/src/http/ngx_http_upstream.c	2010-02-19 21:19:40.000000000 +0800
+***************
+*** 4056,4061 ****
+--- 4056,4062 ----
+          goto invalid;
+      }
+  
++     us->name = u.url;
+      us->addrs = u.addrs;
+      us->naddrs = u.naddrs;
+      us->weight = weight;
+diff -cB nginx-0.7.65/src/http/ngx_http_upstream.h nginx-0.7.65.patched/src/http/ngx_http_upstream.h
+*** nginx-0.7.65/src/http/ngx_http_upstream.h	2009-10-27 01:09:27.000000000 +0800
+--- nginx-0.7.65.patched/src/http/ngx_http_upstream.h	2010-02-19 21:18:56.000000000 +0800
+***************
+*** 80,85 ****
+--- 80,86 ----
+  
+  
+  typedef struct {
++     ngx_str_t                        name;
+      ngx_peer_addr_t                 *addrs;
+      ngx_uint_t                       naddrs;
+      ngx_uint_t                       weight;
