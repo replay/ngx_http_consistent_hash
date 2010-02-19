@@ -11,8 +11,10 @@
 
 typedef struct
 {
-    ngx_uint_t        point;
-    ngx_peer_addr_t   ip;
+    ngx_uint_t                   point;
+    struct sockaddr             *sockaddr;
+    socklen_t                    socklen;
+    ngx_str_t                    name;
 } ngx_http_upstream_consistent_hash_node;
 
 typedef struct
@@ -131,10 +133,10 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf, ngx_http_upstream_srv_con
         server[i].addrs[j].name.data[server[i].addrs[j].name.len] = 0;
         for (k = 0; k < ((MMC_CONSISTENT_POINTS * server[i].weight) / server[i].naddrs); k++) {
           snprintf((char*) hash_data, sizeof(u_char) * 28, "%s-%i", server[i].addrs[j].name.data, (int)k);
-          continuum->nodes[continuum->nnodes].ip.sockaddr = server[i].addrs[j].sockaddr;
-          continuum->nodes[continuum->nnodes].ip.socklen = server[i].addrs[j].socklen;
-          continuum->nodes[continuum->nnodes].ip.name = server[i].addrs[j].name;
-          continuum->nodes[continuum->nnodes].ip.name.data[server[i].addrs[j].name.len] = 0;
+          continuum->nodes[continuum->nnodes].sockaddr = server[i].addrs[j].sockaddr;
+          continuum->nodes[continuum->nnodes].socklen = server[i].addrs[j].socklen;
+          continuum->nodes[continuum->nnodes].name = server[i].addrs[j].name;
+          continuum->nodes[continuum->nnodes].name.data[server[i].addrs[j].name.len] = 0;
           continuum->nodes[continuum->nnodes].point = ngx_crc32_long(hash_data, strlen((char *) hash_data));
           //printf("adding server to continuum at %u: key %s, point %u\n", (unsigned int) j, (char *)hash_data, (unsigned int) continuum->nodes[continuum->nnodes].point);
           continuum->nnodes++;
@@ -150,7 +152,7 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf, ngx_http_upstream_srv_con
 
     for (i=0; i<MMC_CONSISTENT_BUCKETS; i++) {
       buckets->buckets[i] = ngx_http_upstream_consistent_hash_find(continuum, step * i);
-      //printf("added bucket num %u, received host %s\n", (unsigned int) i, buckets->buckets[i]->ip.name.data);
+      //printf("added bucket num %u, received host %s\n", (unsigned int) i, buckets->buckets[i]->name.data);
     }
 
     //ngx_http_upstream_consistent_hash_print_buckets(cf, buckets);
@@ -211,9 +213,9 @@ ngx_http_upstream_get_consistent_hash_peer(ngx_peer_connection_t *pc, void *data
   pc->cached = 0;
   pc->connection = NULL;
 
-  pc->sockaddr = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.sockaddr;
-  pc->socklen = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.socklen;
-  pc->name = &uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->ip.name;
+  pc->sockaddr = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->sockaddr;
+  pc->socklen = uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->socklen;
+  pc->name = &uchpd->peers->buckets[uchpd->point % MMC_CONSISTENT_BUCKETS]->name;
   
   //printf("returning %s\n", pc->name->data);
   return NGX_OK;
@@ -302,7 +304,7 @@ ngx_http_upstream_consistent_hash_print_buckets (ngx_conf_t *cf, ngx_http_upstre
 
   for (i = 0; i < MMC_CONSISTENT_BUCKETS; i++)
   {
-    printf("%i: name %s point %u\n", (int)i, (char*)buckets->buckets[i]->ip.name.data, (unsigned int)buckets->buckets[i]->point);
+    printf("%i: name %s point %u\n", (int)i, (char*)buckets->buckets[i]->name.data, (unsigned int)buckets->buckets[i]->point);
   }
 }
 
@@ -315,6 +317,6 @@ ngx_http_upstream_consistent_hash_print_continuum (ngx_conf_t *cf, ngx_http_upst
 
   for (i = 0; i < continuum->nnodes; i++)
   {
-    printf("%i: name %.19s point %u\n", (int)i, (char*)continuum->nodes[i].ip.name.data, (unsigned int)continuum->nodes[i].point);
+    printf("%i: name %.19s point %u\n", (int)i, (char*)continuum->nodes[i].name.data, (unsigned int)continuum->nodes[i].point);
   }
 }
