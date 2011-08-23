@@ -11,7 +11,7 @@
 
 
 typedef struct {
-    ngx_uint_t                   point;
+    uint32_t                     point;
     struct sockaddr             *sockaddr;
     socklen_t                    socklen;
     ngx_str_t                    name;
@@ -33,7 +33,7 @@ typedef struct {
     ngx_http_upstream_consistent_hash_buckets    *peers;
 
     u_char                                        tries;
-    ngx_uint_t                                    point;
+    uint32_t                                      point;
 
     ngx_event_get_peer_pt                         get_rr_peer;
 } ngx_http_upstream_consistent_hash_peer_data_t;
@@ -60,7 +60,7 @@ static void ngx_http_upstream_consistent_hash_print_buckets (ngx_conf_t *cf,
 #endif
 static ngx_http_upstream_consistent_hash_node* 
 ngx_http_upstream_consistent_hash_find(
-        ngx_http_upstream_consistent_hash_continuum*, ngx_uint_t);
+        ngx_http_upstream_consistent_hash_continuum*, uint32_t);
 static ngx_array_t * ngx_http_upstream_consistent_hash_key_vars_lengths;
 static ngx_array_t * ngx_http_upstream_consistent_hash_key_vars_values;
 
@@ -113,13 +113,13 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf,
 {
     /* ip max 15, :port max 6, maxweight is highest number of uchar */
     u_char                                        hash_data[28];
-    ngx_uint_t                                    step;
+    uint32_t                                      step;
     ngx_uint_t                                    i, j, k, n, points = 0;
     ngx_http_upstream_server_t                   *server;
     ngx_http_upstream_consistent_hash_buckets    *buckets;
     ngx_http_upstream_consistent_hash_continuum  *continuum;
 
-    step = 0xffffffff / MMC_CONSISTENT_BUCKETS;
+    step = (uint32_t) (0xffffffff / MMC_CONSISTENT_BUCKETS);
 
     buckets = ngx_pcalloc(cf->pool, 
             sizeof(ngx_http_upstream_consistent_hash_buckets));
@@ -252,7 +252,7 @@ ngx_http_upstream_get_consistent_hash_peer(ngx_peer_connection_t *pc,
 static ngx_http_upstream_consistent_hash_node*
 ngx_http_upstream_consistent_hash_find(
         ngx_http_upstream_consistent_hash_continuum *continuum, 
-        ngx_uint_t point)
+        uint32_t point)
 {
     ngx_uint_t mid = 0, lo = 0, hi = continuum->nnodes - 1;
 
