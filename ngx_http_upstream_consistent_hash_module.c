@@ -11,6 +11,11 @@
 
 
 typedef struct {
+    ngx_array_t                     *values;
+    ngx_array_t                     *lengths;
+} ngx_http_upstream_consistent_hash_srv_conf_t;
+
+typedef struct {
     uint32_t                     point;
     struct sockaddr             *sockaddr;
     socklen_t                    socklen;
@@ -38,6 +43,7 @@ typedef struct {
     ngx_event_get_peer_pt                         get_rr_peer;
 } ngx_http_upstream_consistent_hash_peer_data_t;
 
+static void * ngx_http_upstream_consistent_hash_create_srv_conf(ngx_conf_t *cf);
 
 static ngx_int_t ngx_http_upstream_init_consistent_hash(ngx_conf_t*, 
         ngx_http_upstream_srv_conf_t*);
@@ -61,8 +67,6 @@ static void ngx_http_upstream_consistent_hash_print_buckets (ngx_conf_t *cf,
 static ngx_http_upstream_consistent_hash_node* 
 ngx_http_upstream_consistent_hash_find(
         ngx_http_upstream_consistent_hash_continuum*, uint32_t);
-static ngx_array_t * ngx_http_upstream_consistent_hash_key_vars_lengths;
-static ngx_array_t * ngx_http_upstream_consistent_hash_key_vars_values;
 
 
 static ngx_command_t  ngx_http_upstream_consistent_hash_commands[] = { 
@@ -84,8 +88,8 @@ static ngx_http_module_t  ngx_http_upstream_consistent_hash_module_ctx = {
     NULL,                                  /* create main configuration */
     NULL,                                  /* init main configuration */
 
-    NULL,                                  /* create server configuration */
-    NULL,                                  /* merge server configuration */
+    ngx_http_upstream_consistent_hash_create_srv_conf, /* create server configuration */
+    NULL,                                              /* merge server configuration */
 
     NULL,                                  /* create location configuration */
     NULL                                   /* merge location configuration */
@@ -198,7 +202,14 @@ ngx_http_upstream_init_consistent_hash_peer(ngx_http_request_t *r,
         ngx_http_upstream_srv_conf_t *us)
 {
     ngx_str_t                                          evaluated_key_to_hash;
+    ngx_http_upstream_consistent_hash_srv_conf_t      *uchscf;
     ngx_http_upstream_consistent_hash_peer_data_t     *uchpd;
+
+    uchscf = ngx_http_conf_upstream_srv_conf(us,
+                                          ngx_http_upstream_consistent_hash_module);
+    if (uchscf == NULL) {
+        return NGX_ERROR;
+    }
 
     uchpd = ngx_pcalloc(r->pool, sizeof(ngx_http_upstream_consistent_hash_peer_data_t));
     if (uchpd == NULL) {
@@ -209,8 +220,7 @@ ngx_http_upstream_init_consistent_hash_peer(ngx_http_request_t *r,
     uchpd->peers = us->peer.data;
 
     if (ngx_http_script_run(r, &evaluated_key_to_hash, 
-                ngx_http_upstream_consistent_hash_key_vars_lengths->elts, 0,
-                ngx_http_upstream_consistent_hash_key_vars_values->elts) == NULL)
+                uchscf->lengths->elts, 0, uchscf->values->elts) == NULL)
     {
         return NGX_ERROR;
     }
@@ -291,33 +301,54 @@ ngx_http_upstream_free_consistent_hash_peer(ngx_peer_connection_t *pc, void *dat
 }
 
 
+static void *
+ngx_http_upstream_consistent_hash_create_srv_conf(ngx_conf_t *cf)
+{
+    ngx_http_upstream_consistent_hash_srv_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool,
+                       sizeof(ngx_http_upstream_consistent_hash_srv_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * set by ngx_pcalloc(): 
+     *
+     *     conf->lengths = NULL; 
+     *     conf->values = NULL;
+    */
+
+    return conf;
+}
+
+
 static char *
 ngx_http_upstream_consistent_hash(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    ngx_http_upstream_srv_conf_t *uscf;
-    ngx_http_script_compile_t sc;
-    ngx_str_t *value;
-
+    ngx_str_t                                    *value;
+    ngx_http_script_compile_t                     sc;
+    ngx_http_upstream_srv_conf_t                 *uscf;
+    ngx_http_upstream_consistent_hash_srv_conf_t *uchscf;
 
     value = cf->args->elts;
 
-    ngx_memzero(&sc, sizeof(ngx_http_script_compile_t));
+    uscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_upstream_module);
+    uchscf = ngx_http_conf_upstream_srv_conf(uscf,
+                                          ngx_http_upstream_consistent_hash_module);
 
-    ngx_http_upstream_consistent_hash_key_vars_lengths = NULL;
-    ngx_http_upstream_consistent_hash_key_vars_values = NULL;
+    ngx_memzero(&sc, sizeof(ngx_http_script_compile_t));
 
     sc.cf = cf;
     sc.source = &value[1];
-    sc.lengths = &ngx_http_upstream_consistent_hash_key_vars_lengths;
-    sc.values = &ngx_http_upstream_consistent_hash_key_vars_values;
+    sc.lengths = &uchscf->lengths;
+    sc.values = &uchscf->values;
     sc.complete_lengths = 1;
     sc.complete_values = 1;
 
     if (ngx_http_script_compile(&sc) != NGX_OK) {
         return NGX_CONF_ERROR;
     }
-
-    uscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_upstream_module);
 
     uscf->peer.init_upstream = ngx_http_upstream_init_consistent_hash;
 
