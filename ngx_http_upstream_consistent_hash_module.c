@@ -123,6 +123,8 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf,
     ngx_http_upstream_consistent_hash_buckets    *buckets;
     ngx_http_upstream_consistent_hash_continuum  *continuum;
 
+    for (i=0;i<28;i++) hash_data[i] = NULL;
+
     step = (uint32_t) (0xffffffff / MMC_CONSISTENT_BUCKETS);
 
     buckets = ngx_pcalloc(cf->pool, 
