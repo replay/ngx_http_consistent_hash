@@ -125,7 +125,7 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf,
     ngx_http_upstream_consistent_hash_buckets    *buckets;
     ngx_http_upstream_consistent_hash_continuum  *continuum;
 
-    for (i=0;i<HASH_DATA_LENGTH;i++) hash_data[i] = NULL;
+    for (i=0;i<HASH_DATA_LENGTH;i++) hash_data[i] = 0;
 
     step = (uint32_t) (0xffffffff / MMC_CONSISTENT_BUCKETS);
 
