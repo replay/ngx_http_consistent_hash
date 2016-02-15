@@ -1,4 +1,4 @@
-ngx_addon_name=ngx_http_upstream_consistent_hash
+ngx_addon_name=ngx_http_upstream_consistent_hash_module
 HTTP_UPSTREAM_CONSISTENT_HASH_SRCS="$ngx_addon_dir/ngx_http_upstream_consistent_hash_module.c"
 if [ -n "$ngx_module_link" ]; then
     ngx_module_type=HTTP
