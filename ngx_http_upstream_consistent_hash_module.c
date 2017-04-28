@@ -152,7 +152,7 @@ ngx_http_upstream_init_consistent_hash(ngx_conf_t *cf,
 
     for (i = 0; i < us->servers->nelts; i++) {
         for (j = 0; j < server[i].naddrs; j++) {
-            for (k = 0; k < ((MMC_CONSISTENT_POINTS * server[i].weight) / server[i].naddrs); k++) {
+            for (k = 0; k < (MMC_CONSISTENT_POINTS * server[i].weight); k++) {
                 ngx_snprintf(hash_data, HASH_DATA_LENGTH, "%V-%ui%Z", &server[i].addrs[j].name, k);
                 continuum->nodes[continuum->nnodes].sockaddr = server[i].addrs[j].sockaddr;
                 continuum->nodes[continuum->nnodes].socklen = server[i].addrs[j].socklen;
